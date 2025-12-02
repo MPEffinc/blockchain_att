@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>INU BlockChain Attendance Checking</title>
+
+  <style>
+    body {
+      font-family: "Arial", sans-serif;
+      background-color: #f1f3f7;
+      margin: 0;
+      padding: 40px 0;
+      text-align: center;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 92%;
+      max-width: 560px;
+      background: white;
+      padding: 40px 30px;
+      border-radius: 24px;
+      box-shadow: 0 5px 18px rgba(0,0,0,0.1);
+    }
+
+    img.logo {
+      width: 150px;
+      margin-bottom: 20px;
+    }
+
+    h2 {
+      font-size: 26px;
+      font-weight: bold;
+      color: #223a73;
+      margin-bottom: 10px;
+    }
+
+    p.subtext {
+      font-size: 16px;
+      color: #555;
+      margin-bottom: 30px;
+    }
+
+    button {
+      width: 100%;
+      padding: 18px;
+      font-size: 18px;
+      font-weight: bold;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+
+    #attendBtn {
+      background-color: #223a73;
+      color: white;
+    }
+
+    #viewBtn {
+      background-color: #e8eef7;
+      color: #223a73;
+      border: 2px solid #223a73;
+    }
+
+    #adminBtn {
+      background-color: #dadff0;
+      color: #223a73;
+      border: 2px solid #223a73;
+    }
+
+    #info {
+      margin-top: 20px;
+      font-size: 15px;
+      color: #444;
+      word-break: break-all;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+
+    <img src="INU.png" class="logo" alt="INU 로고">
+
+    <h2>INU BlockChain Attendance Checking</h2>
+    <p class="subtext">로컬 네트워크에서 출석을 진행합니다.<br>아래 버튼을 눌러 출석을 진행하세요.</p>
+
+
+    <!-- 출석 버튼 -->
+    <button id="attendBtn">출석하기</button>
+
+    <!-- 조회 / 관리자 버튼 -->
+    <button id="viewBtn">출석 기록 보기</button>
+    <button id="adminBtn">관리자 페이지</button>
+    <style>
+      #qr-wrapper {
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+      }
+      #qrcode > img,
+      #qrcode > canvas {
+        margin: 0 auto;
+        display: block;
+      }
+    </style>
+
+    <div style="text-align:center; margin-top:20px;">
+      <h3>QR Code</h3>
+      <div id="qr-wrapper">
+        <div id="qrcode"></div>
+      </div>
+      <p id="server-url"></p>
+    </div>
+
+    <p id="info"></p>
+  </div>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+
+  <script>
+  async function generateQR() {
+    try {
+      const res = await fetch("/api/server-ip");
+      const data = await res.json();
+
+      const serverIP = data.ip;
+      const url = `http://${serverIP}:3000`;
+
+      document.getElementById("server-url").innerText = url;
+
+      // 기존 QR 코드 있으면 초기화
+      document.getElementById("qrcode").innerHTML = "";
+
+      new QRCode(document.getElementById("qrcode"), {
+        text: url,
+        width: 200,
+        height: 200,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    } catch (e) {
+      console.log("QR 생성 실패:", e);
+    }
+  }
+
+  generateQR();
+</script>
+
+  <script>
+    // 외부 IP + 시간
+    async function getNetworkInfo() {
+      try {
+        const resp = await fetch("https://api.ipify.org?format=json");
+        const { ip } = await resp.json();
+        const now = new Date().toLocaleString();
+        return `IP:${ip}, TIME:${now}`;
+      } catch (e) {
+        return "IP 확인 불가";
+      }
+    }
+
+    // 기기 정보
+    function getDeviceInfo() {
+      const ua = navigator.userAgent;
+      const size = `${screen.width}x${screen.height}`;
+      return `UA:${ua}, SIZE:${size}`;
+    }
+
+    // 출석 처리
+    document.getElementById("attendBtn").onclick = async () => {
+      const userId = prompt("학번 또는 이름을 입력하세요:");
+      if (!userId) return;
+
+      document.getElementById("info").innerText = "출석 중...";
+
+      const networkInfo = await getNetworkInfo();
+      const deviceInfo = `UA:${navigator.userAgent}, SIZE:${window.innerWidth}x${window.innerHeight}`;
+      const fullInfo = `${networkInfo}, ${deviceInfo}`;
+
+      const res = await fetch("/api/attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, networkInfo:fullInfo })
+      });
+
+      const data = await res.json();
+
+      document.getElementById("info").innerText =
+        data.success
+        ? `출석 완료!\n트랜잭션: ${data.txHash}`
+        : `오류 발생: ${data.error}`;
+    };
+
+    // 페이지 이동 버튼들
+    document.getElementById("viewBtn").onclick = () => {
+      location.href = "/view.html";
+    };
+
+    document.getElementById("adminBtn").onclick = () => {
+      location.href = "/admin.html";
+    };
+  </script>
+
+</body>
+</html>

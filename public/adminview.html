@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>INU Attendance Admin</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background:#f5f5f8; padding:20px; text-align:center; }
+    button { padding:10px 20px; font-size:16px; margin:10px; }
+    #status { margin-top:15px; font-weight:bold; }
+  </style>
+</head>
+<body>
+  <h2>관리자 페이지</h2>
+  <p>Metamask로 관리자 계정에 연결 후 출석 기록을 초기화할 수 있습니다.</p>
+  <button id="connectBtn">메타마스크 연결</button>
+  <button id="resetBtn" disabled>출석 기록 전체 삭제</button>
+  <div id="status"></div>
+  <p><a href="/">← 출석 페이지로 돌아가기</a></p>
+
+  <script>
+    let currentAccount = null;
+
+    const connectBtn = document.getElementById("connectBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const status = document.getElementById("status");
+
+    connectBtn.onclick = async () => {
+      if (!window.ethereum) {
+        alert("Metamask가 필요합니다.");
+        return;
+      }
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        currentAccount = accounts[0];
+        status.innerText = "연결된 계정: " + currentAccount;
+        resetBtn.disabled = false;
+      } catch (e) {
+        status.innerText = "계정 연결 실패: " + e.message;
+      }
+    };
+
+    resetBtn.onclick = async () => {
+      if (!currentAccount) {
+        alert("먼저 메타마스크 계정을 연결하세요.");
+        return;
+      }
+
+      if (!confirm("정말 모든 출석 기록을 삭제할까요?")) return;
+
+      status.innerText = "리셋 트랜잭션 전송 중...";
+
+      try {
+        const res = await fetch("/api/reset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ signer: currentAccount })
+        });
+        const data = await res.json();
+        if (data.success) {
+          status.innerText = "초기화 완료! Tx: " + data.txHash;
+        } else {
+          status.innerText = "오류: " + data.error;
+        }
+      } catch (e) {
+        status.innerText = "요청 실패: " + e.message;
+      }
+    };
+  </script>
+</body>
+</html>
